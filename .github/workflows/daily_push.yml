@@ -1,36 +1,107 @@
-name: 每日微信推送
-
+name: Server酱+高德天气（北京+临沂）微信定时推送
 on:
-  push:
-    branches: [ main ] # 代码提交时触发（用于测试）
   schedule:
-    # 每天 UTC 0:00 运行 (即北京时间 8:00)
-    - cron: '0 0 * * *'
-  workflow_dispatch: # 允许在 GitHub 界面手动点击运行
+    # 每天北京时间9点推送（UTC 7点）
+    - cron: '0 23 * * *'
+  workflow_dispatch:  # 手动触发开关（测试用）
 
 jobs:
-  build:
+  push:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 迁出代码
-        uses: actions/checkout@v3
+      - name: 安装jq（解析高德天气JSON）
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: 设置 Python 环境
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: 安装依赖
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: 运行推送脚本
+      - name: 调用高德天气API（北京）
         env:
-          # 将 GitHub Secrets 映射到环境变量
-          APP_ID: ${{ secrets.APP_ID }}
-          APP_SECRET: ${{ secrets.APP_SECRET }}
-          USER_ID: ${{ secrets.USER_ID }}
-          TEMPLATE_ID: ${{ secrets.TEMPLATE_ID }}
-        run: python main.py
+          AMAP_KEY: ${{ secrets.AMAP_WEATHER_KEY }}
+          BEIJING_ADCODE: "110000"  # 北京城市编码
+        run: |
+          # 获取北京实时天气
+          BEIJING_WEATHER=$(curl -s "https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${BEIJING_ADCODE}&extensions=base&output=json")
+          # 解析北京天气数据
+          BJ_TEMP=$(echo $BEIJING_WEATHER | jq -r '.lives[0].temperature')
+          BJ_TYPE=$(echo $BEIJING_WEATHER | jq -r '.lives[0].weather')
+          BJ_WIND=$(echo $BEIJING_WEATHER | jq -r '.lives[0].winddirection')
+          BJ_HUMI=$(echo $BEIJING_WEATHER | jq -r '.lives[0].humidity')
+          # 保存到环境变量
+          echo "BJ_TEMP=${BJ_TEMP}" >> $GITHUB_ENV
+          echo "BJ_TYPE=${BJ_TYPE}" >> $GITHUB_ENV
+          echo "BJ_WIND=${BJ_WIND}" >> $GITHUB_ENV
+          echo "BJ_HUMI=${BJ_HUMI}" >> $GITHUB_ENV
+          echo "✅ 北京天气获取成功：${BJ_TYPE} ${BJ_TEMP}℃"
+
+      - name: 调用高德天气API（临沂）
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_WEATHER_KEY }}
+          LINYI_ADCODE: "371300"  # 临沂城市编码（固定）
+        run: |
+          # 获取临沂实时天气
+          LINYI_WEATHER=$(curl -s "https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${LINYI_ADCODE}&extensions=base&output=json")
+          # 解析临沂天气数据
+          LY_TEMP=$(echo $LINYI_WEATHER | jq -r '.lives[0].temperature')
+          LY_TYPE=$(echo $LINYI_WEATHER | jq -r '.lives[0].weather')
+          LY_WIND=$(echo $LINYI_WEATHER | jq -r '.lives[0].winddirection')
+          LY_HUMI=$(echo $LINYI_WEATHER | jq -r '.lives[0].humidity')
+          # 保存到环境变量
+          echo "LY_TEMP=${LY_TEMP}" >> $GITHUB_ENV
+          echo "LY_TYPE=${LY_TYPE}" >> $GITHUB_ENV
+          echo "LY_WIND=${LY_WIND}" >> $GITHUB_ENV
+          echo "LY_HUMI=${LY_HUMI}" >> $GITHUB_ENV
+          echo "✅ 临沂天气获取成功：${LY_TYPE} ${LY_TEMP}℃"
+
+      - name: 推送微信消息（Server酱）
+        env:
+          SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+        run: |
+          # 构造推送标题
+          TITLE="【双城市天气提醒】$(date +'%Y-%m-%d')"
+          # 构造推送内容（含北京+临沂天气）
+          DESP="📅 今日日期：$(date +'%Y年%m月%d日 %H:%M')
+  🔹 北京天气：
+  🌤️  天气类型：${BJ_TYPE} | 温度：${BJ_TEMP}℃
+  💨  风向：${BJ_WIND} | 湿度：${BJ_HUMI}%
+  🔹 临沂天气：
+  🌤️  天气类型：${LY_TYPE} | 温度：${LY_TEMP}℃
+  💨  风向：${LY_WIND} | 湿度：${LY_HUMI}%
+  ✅ 今日待办：
+  1. 处理日常工作事项
+  2. 下班顺路取快递
+  3. 睡前阅读30分钟
+  💡 北京贴心提示：$(
+  if [ "$BJ_TYPE" = "雨" ]; then
+  echo "今天有雨，出门记得带伞哦～"
+  elif [ "$BJ_TEMP" -gt 30 ]; then
+  echo "今天高温，注意防暑降温～"
+  elif [ "$BJ_TEMP" -lt 10 ]; then
+  echo "今天低温，记得多穿衣服～"
+  else
+  echo "天气舒适，记得多喝水、适当运动～"
+  fi
+  )
+  💡 临沂贴心提示：$(
+  if [ "$LY_TYPE" = "雨" ]; then
+  echo "今天有雨，提醒家人出门带伞哦～"
+  elif [ "$LY_TEMP" -gt 30 ]; then
+  echo "今天高温，提醒家人防暑降温～"
+  elif [ "$LY_TEMP" -lt 10 ]; then
+  echo "今天低温，提醒家人多穿衣服～"
+  else
+  echo "天气舒适，提醒家人多喝水～"
+  fi
+  )
+  🔗 今日热点：https://news.163.com/"
+  
+  # 调用Server酱API推送
+  curl -X POST "https://sctapi.ftqq.com/${SENDKEY}.send" \
+-H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "title=${TITLE}" \
+  --data-urlencode "desp=${DESP}"
+  
+  # 验证推送结果
+  if [ $? -eq 0 ]; then
+  echo "✅ 微信消息推送成功！"
+  else
+  echo "❌ 微信消息推送失败！"
+  exit 1
+  fi
