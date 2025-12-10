@@ -1,58 +1,118 @@
-- name: 推送微信消息  # 6个空格
-  env:              # 8个空格
-    SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}  # 10个空格
-  run: |            # 8个空格
-    TODAY_DATE=$(date +'%Y年%m月%d日 %H:%M')
-    
-    # 北京提示
-    if [ "${BJ_TYPE}" = "雨" ]; then
-      BJ_TIPS="今天有雨，出门记得带伞哦～"
-    elif [ "${BJ_TEMP_NUM}" -gt 30 ]; then
-      BJ_TIPS="今天高温，注意防暑降温～"
-    elif [ "${BJ_TEMP_NUM}" -lt 10 ]; then
-      BJ_TIPS="今天低温，记得多穿衣服～"
-    else
-      BJ_TIPS="天气舒适，记得多喝水、适当运动～"
-    fi
-    
-    # 临沂提示
-    if [ "${LY_TYPE}" = "雨" ]; then
-      LY_TIPS="今天有雨，提醒家人出门带伞哦～"
-    elif [ "${LY_TEMP_NUM}" -gt 30 ]; then
-      LY_TIPS="今天高温，提醒家人防暑降温～"
-    elif [ "${LY_TEMP_NUM}" -lt 10 ]; then
-      LY_TIPS="今天低温，提醒家人多穿衣服～"
-    else
-      LY_TIPS="天气舒适，提醒家人多喝水～"
-    fi
-    
-    # 拼接推送内容 (注意：引号内的换行也要保持缩进)
-    DESP="【双城市天气提醒】
-    今日日期：${TODAY_DATE}
-    - 北京天气：
-    天气类型：${BJ_TYPE} | 温度：${BJ_TEMP}℃
-    风向：${BJ_WIND} | 湿度：${BJ_HUMI}%
-    - 临沂天气：
-    天气类型：${LY_TYPE} | 温度：${LY_TEMP}℃
-    风向：${LY_WIND} | 湿度：${LY_HUMI}%
-    今日待办：
-    1. 处理日常工作事项
-    2. 下班顺路取快递
-    3. 睡前阅读30分钟
-    北京贴心提示：${BJ_TIPS}
-    临沂贴心提示：${LY_TIPS}
-    今日热点：https://news.163.com/"
-    
-    # 调用Server酱推送 (这里也要保持缩进)
-    curl -X POST "https://sctapi.ftqq.com/${SENDKEY}.send" \
-    -d "title=双城市天气提醒_$(date +%Y%m%d)" \
-    -d "desp=${DESP}" \
-    --insecure
-    
-    # 验证结果 (这里也要保持缩进)
-    if [ $? -eq 0 ]; then
-      echo "✅ 推送成功！"
-    else
-      echo "❌ 推送失败！"
-      exit 1
-    fi
+name: Server酱+高德天气（北京+临沂）微信定时推送
+on:
+  schedule:
+    # 新增：北京时间早上7点推送 (对应UTC时间前一天的23点)
+    - cron: '0 23 * * *'
+  workflow_dispatch:     # 手动触发开关
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 安装jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: 获取北京天气
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_WEATHER_KEY }}
+        run: |
+          BEIJING_WEATHER=$(curl -s --max-time 10 --retry 2 "https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=110000&extensions=base&output=json")
+          BJ_TEMP=$(echo $BEIJING_WEATHER | jq -r '.lives[0].temperature // "20"')
+          BJ_TYPE=$(echo $BEIJING_WEATHER | jq -r '.lives[0].weather // "晴"')
+          BJ_WIND=$(echo $BEIJING_WEATHER | jq -r '.lives[0].winddirection // "无风"')
+          BJ_HUMI=$(echo $BEIJING_WEATHER | jq -r '.lives[0].humidity // "50"')
+          BJ_TEMP_NUM=$(echo "$BJ_TEMP" | sed 's/[^0-9]//g')
+          [ -z "$BJ_TEMP_NUM" ] && BJ_TEMP_NUM=20
+          echo "BJ_TEMP=$BJ_TEMP" >> $GITHUB_ENV
+          echo "BJ_TYPE=$BJ_TYPE" >> $GITHUB_ENV
+          echo "BJ_WIND=$BJ_WIND" >> $GITHUB_ENV
+          echo "BJ_HUMI=$BJ_HUMI" >> $GITHUB_ENV
+          echo "BJ_TEMP_NUM=$BJ_TEMP_NUM" >> $GITHUB_ENV
+
+      - name: 获取临沂天气
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_WEATHER_KEY }}
+        run: |
+          LINYI_WEATHER=$(curl -s --max-time 10 --retry 2 "https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=371300&extensions=base&output=json")
+          LY_TEMP=$(echo $LINYI_WEATHER | jq -r '.lives[0].temperature // "20"')
+          LY_TYPE=$(echo $LINYI_WEATHER | jq -r '.lives[0].weather // "晴"')
+          LY_WIND=$(echo $LINYI_WEATHER | jq -r '.lives[0].winddirection // "无风"')
+          LY_HUMI=$(echo $LINYI_WEATHER | jq -r '.lives[0].humidity // "50"')
+          LY_TEMP_NUM=$(echo "$LY_TEMP" | sed 's/[^0-9]//g')
+          [ -z "$LY_TEMP_NUM" ] && LY_TEMP_NUM=20
+          echo "LY_TEMP=$LY_TEMP" >> $GITHUB_ENV
+          echo "LY_TYPE=$LY_TYPE" >> $GITHUB_ENV
+          echo "LY_WIND=$LY_WIND" >> $GITHUB_ENV
+          echo "LY_HUMI=$LY_HUMI" >> $GITHUB_ENV
+          echo "LY_TEMP_NUM=$LY_TEMP_NUM" >> $GITHUB_ENV
+
+      - name: 推送微信消息
+        env:
+          SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+        run: |
+          TODAY_DATE=$(date +"%Y年%m月%d日 %A")
+          
+          # 北京提示
+          if [[ "${BJ_TYPE}" == *"雨"* ]]; then
+            BJ_TIPS="今天有雨，出门记得带伞哦～"
+          elif [ "${BJ_TEMP_NUM}" -gt 30 ]; then
+            BJ_TIPS="今天高温，注意防暑降温～"
+          elif [ "${BJ_TEMP_NUM}" -lt 10 ]; then
+            BJ_TIPS="今天低温，记得多穿衣服～"
+          else
+            BJ_TIPS="天气舒适，记得多喝水、适当运动～"
+          fi
+
+          # 临沂提示
+          if [[ "${LY_TYPE}" == *"雨"* ]]; then
+            LY_TIPS="今天有雨，提醒家人出门带伞哦～"
+          elif [ "${LY_TEMP_NUM}" -gt 30 ]; then
+            LY_TIPS="今天高温，提醒家人防暑降温～"
+          elif [ "${LY_TEMP_NUM}" -lt 10 ]; then
+            LY_TIPS="今天低温，提醒家人多穿衣服～"
+          else
+            LY_TIPS="天气舒适，提醒家人多喝水～"
+          fi
+          
+          # 拼接推送内容 (注意多行字符串内的缩进)
+          DESP="
+          #### 🏙️ 双城市天气提醒
+          **${TODAY_DATE}**
+          ***
+          **📍 北京**
+          - **天气**：${BJ_TYPE}
+          - **温度**：${BJ_TEMP}℃
+          - **风向**：${BJ_WIND}
+          - **湿度**：${BJ_HUMI}%
+          - **提示**：${BJ_TIPS}
+          ***
+          **📍 临沂**
+          - **天气**：${LY_TYPE}
+          - **温度**：${LY_TEMP}℃
+          - **风向**：${LY_WIND}
+          - **湿度**：${LY_HUMI}%
+          - **提示**：${LY_TIPS}
+          ***
+          #### 📝 今日待办
+          1.  处理日常工作事项
+          2.  下班顺路取快递
+          3.  睡前阅读30分钟
+          
+          [今日热点](https://news.163.com/)
+          "
+          
+          # URL编码desp内容以确保特殊字符正确传输
+          ENCODED_DESP=$(echo "$DESP" | jq -sRr @uri)
+
+          # 调用Server酱推送
+          curl -X POST "https://sctapi.ftqq.com/${SENDKEY}.send" \
+          --data-urlencode "title=双城市天气提醒-$(date +%Y%m%d)" \
+          --data-urlencode "desp=${DESP}"
+          
+          # 检查curl命令的退出状态
+          if [ $? -eq 0 ]; then
+            echo "✅ 推送命令已发送！请检查微信接收情况。"
+          else
+            echo "❌ 推送命令发送失败！"
+            exit 1
+          fi
