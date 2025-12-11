@@ -52,8 +52,10 @@ jobs:
         run: |
           TODAY_DATE=$(date +"%Y年%m月%d日 %A")
           
-          # 北京提示
-          if [[ "${BJ_TYPE}" == *"雨"* ]]; then
+          # 北京提示（增加下雪判断，优先级高于雨）
+          if [[ "${BJ_TYPE}" == *"雪"* ]]; then
+            BJ_TIPS="今天有雪，路面易滑，出门注意安全，记得带保暖用品～"
+          elif [[ "${BJ_TYPE}" == *"雨"* ]]; then
             BJ_TIPS="今天有雨，出门记得带伞哦～"
           elif [ "${BJ_TEMP_NUM}" -gt 30 ]; then
             BJ_TIPS="今天高温，注意防暑降温～"
@@ -63,8 +65,10 @@ jobs:
             BJ_TIPS="天气舒适，记得多喝水、适当运动～"
           fi
 
-          # 临沂提示
-          if [[ "${LY_TYPE}" == *"雨"* ]]; then
+          # 临沂提示（增加下雪判断，优先级高于雨）
+          if [[ "${LY_TYPE}" == *"雪"* ]]; then
+            LY_TIPS="今天有雪，路面易滑，提醒家人出门注意安全、做好保暖～"
+          elif [[ "${LY_TYPE}" == *"雨"* ]]; then
             LY_TIPS="今天有雨，提醒家人出门带伞哦～"
           elif [ "${LY_TEMP_NUM}" -gt 30 ]; then
             LY_TIPS="今天高温，提醒家人防暑降温～"
