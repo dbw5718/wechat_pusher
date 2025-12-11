@@ -1,0 +1,8 @@
+# 忽略IntelliJ IDEA配置目录
+.idea/
+# 可选：同时忽略IDE生成的其他文件
+*.iml
+*.iws
+*.ipr
+out/
+target/
