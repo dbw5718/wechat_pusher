@@ -21,7 +21,8 @@ jobs:
           BJ_TYPE=$(echo $BEIJING_WEATHER | jq -r '.lives[0].weather // "晴"')
           BJ_WIND=$(echo $BEIJING_WEATHER | jq -r '.lives[0].winddirection // "无风"')
           BJ_HUMI=$(echo $BEIJING_WEATHER | jq -r '.lives[0].humidity // "50"')
-          BJ_TEMP_NUM=$(echo "$BJ_TEMP" | sed 's/[^0-9]//g')
+          # 修复：保留负号，只删除数字和负号以外的字符（处理零下温度）
+          BJ_TEMP_NUM=$(echo "$BJ_TEMP" | sed 's/[^0-9-]//g')
           [ -z "$BJ_TEMP_NUM" ] && BJ_TEMP_NUM=20
           echo "BJ_TEMP=$BJ_TEMP" >> $GITHUB_ENV
           echo "BJ_TYPE=$BJ_TYPE" >> $GITHUB_ENV
@@ -38,7 +39,8 @@ jobs:
           LY_TYPE=$(echo $LINYI_WEATHER | jq -r '.lives[0].weather // "晴"')
           LY_WIND=$(echo $LINYI_WEATHER | jq -r '.lives[0].winddirection // "无风"')
           LY_HUMI=$(echo $LINYI_WEATHER | jq -r '.lives[0].humidity // "50"')
-          LY_TEMP_NUM=$(echo "$LY_TEMP" | sed 's/[^0-9]//g')
+          # 修复：保留负号，只删除数字和负号以外的字符（处理零下温度）
+          LY_TEMP_NUM=$(echo "$LY_TEMP" | sed 's/[^0-9-]//g')
           [ -z "$LY_TEMP_NUM" ] && LY_TEMP_NUM=20
           echo "LY_TEMP=$LY_TEMP" >> $GITHUB_ENV
           echo "LY_TYPE=$LY_TYPE" >> $GITHUB_ENV
