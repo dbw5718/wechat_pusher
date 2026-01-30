@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <localRepository>${user.home}/.m2/repository</localRepository>
+    <pluginGroups/>
+    <proxies/>
+
+    <!-- 私服认证：新增快照仓库的认证（ID 与快照仓库/镜像一致） -->
+    <servers>
+        <!-- 正式版仓库认证 -->
+        <server>
+            <id>momo-nexus-releases</id>
+            <username>wangmingzhen1963</username>
+            <password>Wmz040809,</password>
+            <configuration>
+                <httpConfiguration>
+                    <all>
+                        <authenticationInfo>
+                            <username>wangmingzhen1963</username>
+                            <password>Wmz040809,</password>
+                        </authenticationInfo>
+                    </all>
+                </httpConfiguration>
+            </configuration>
+        </server>
+        <!-- 快照版仓库认证（ID 单独命名，与快照仓库一致） -->
+        <server>
+            <id>momo-nexus-snapshots</id>
+            <username>wangmingzhen1963</username>
+            <password>Wmz040809.</password>
+            <configuration>
+                <httpConfiguration>
+                    <all>
+                        <authenticationInfo>
+                            <username>wangmingzhen1963</username>
+                            <password>Wmz040809,</password>
+                        </authenticationInfo>
+                    </all>
+                </httpConfiguration>
+            </configuration>
+        </server>
+    </servers>
+
+    <!-- 镜像配置：正式版+快照版分开镜像，零歧义 -->
+    <mirrors>
+        <!-- 正式版内部依赖：走私服 releases 仓库 -->
+        <mirror>
+            <id>momo-nexus-releases</id>
+            <name>Momo Releases Nexus</name>
+            <url>http://maven.wemomo.com:18081/nexus/content/repositories/releases/</url>
+            <mirrorOf>momo-nexus-releases</mirrorOf>
+        </mirror>
+        <!-- 快照版内部依赖：走私服 snapshots 仓库（重点新增） -->
+        <mirror>
+            <id>momo-nexus-snapshots</id>
+            <name>Momo Snapshots Nexus</name>
+            <url>http://maven.wemomo.com:18081/nexus/content/repositories/snapshots/</url>
+            <mirrorOf>momo-nexus-snapshots</mirrorOf>
+        </mirror>
+        <!-- 公共依赖：走阿里云 -->
+        <mirror>
+            <id>aliyunmaven</id>
+            <name>Aliyun Maven</name>
+            <url>https://maven.aliyun.com/repository/public</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+    </mirrors>
+
+    <!-- 仓库配置：分正式版/快照版，精准匹配内部依赖 -->
+    <profiles>
+        <profile>
+            <id>momo-exclusive-repo</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <repositories>
+                <!-- 1. 正式版内部依赖（非 SNAPSHOT） -->
+                <repository>
+                    <id>momo-nexus-releases</id>
+                    <name>Momo Releases Repository</name>
+                    <url>http://maven.wemomo.com:18081/nexus/content/repositories/releases/</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots> <!-- 禁用快照，只处理正式版 -->
+                    <updatePolicy>always</updatePolicy>
+                    <groupIdFilters>
+                        <groupIdFilter>com.immomo.*</groupIdFilter> <!-- 仅内部依赖 -->
+                    </groupIdFilters>
+                </repository>
+                <!-- 2. 快照版内部依赖（含 SNAPSHOT）（重点新增） -->
+                <repository>
+                    <id>momo-nexus-snapshots</id>
+                    <name>Momo Snapshots Repository</name>
+                    <url>http://maven.wemomo.com:18081/nexus/content/repositories/snapshots/</url>
+                    <releases><enabled>false</enabled></releases> <!-- 禁用正式版，只处理快照 -->
+                    <snapshots><enabled>true</enabled></snapshots>
+                    <updatePolicy>always</updatePolicy> <!-- 快照版每次强制更新 -->
+                    <groupIdFilters>
+                        <groupIdFilter>com.immomo.*</groupIdFilter> <!-- 仅内部依赖 -->
+                    </groupIdFilters>
+                </repository>
+                <!-- 3. 公共依赖（非 com.immomo） -->
+                <repository>
+                    <id>central</id>
+                    <name>Central Repository</name>
+                    <url>https://repo.maven.apache.org/maven2</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
+                    <groupIdFilters>
+                        <groupIdFilter>!com.immomo.*</groupIdFilter>
+                    </groupIdFilters>
+                </repository>
+            </repositories>
+            <!-- 插件仓库：公共插件走阿里云 -->
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>aliyunmaven</id>
+                    <url>https://maven.aliyun.com/repository/public</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+
+        <!-- 保留基础环境配置 -->
+        <profile>
+            <id>jdk1.8</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
+            <properties>
+                <maven.compiler.source>1.8</maven.compiler.source>
+                <maven.compiler.target>1.8</maven.compiler.target>
+            </properties>
+        </profile>
+        <profile>
+            <id>ignore-ssl</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
+            <properties>
+                <maven.wagon.http.ssl.insecure>true</maven.wagon.http.ssl.insecure>
+                <maven.wagon.http.ssl.allowall>true</maven.wagon.http.ssl.allowall>
+            </properties>
+        </profile>
+    </profiles>
+
+    <activeProfiles>
+        <activeProfile>momo-exclusive-repo</activeProfile>
+        <activeProfile>jdk1.8</activeProfile>
+        <activeProfile>ignore-ssl</activeProfile>
+    </activeProfiles>
+
+</settings>
