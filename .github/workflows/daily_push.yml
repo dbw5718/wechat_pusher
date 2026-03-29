@@ -77,7 +77,7 @@ jobs:
             LY_TIPS="天气舒适，提醒家人多喝水～"
           fi
           
-          # 推送内容（Markdown 格式，PushDeer 完美支持）
+          # 推送内容
           DESP="
           #### 🏙️ 双城市天气提醒
           **${TODAY_DATE}**
@@ -104,8 +104,8 @@ jobs:
           [今日热点](https://news.163.com/)
           "
 
-          # PushDeer 官方推送接口
-          curl -s --get "https://api2.pushdeer.com/message/push" \
+          # 完全按照你给的格式推送
+          curl -s -G "https://api2.pushdeer.com/message/push" \
             --data-urlencode "pushkey=${PUSHDEER_KEY}" \
             --data-urlencode "text=双城市天气提醒-$(date +%Y%m%d)" \
             --data-urlencode "desp=${DESP}" \
