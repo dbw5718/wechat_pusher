@@ -8,6 +8,9 @@ jobs:
   push:
     runs-on: ubuntu-latest
     steps:
+      - name: 设置时区为东八区（北京时间）
+        run: sudo timedatectl set-timezone Asia/Shanghai
+
       - name: 安装jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
